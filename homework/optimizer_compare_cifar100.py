@@ -2,6 +2,10 @@
 import os
 import pickle
 import numpy as np
+from common.optimizer import *
+from common.multi_layer_net import MultiLayerNet
+from common.util import smooth_curve
+import matplotlib.pyplot as plt
 
 
 def change_one_hot_label(translate_x):
@@ -30,50 +34,50 @@ def gen_ci_far100_data(normalize=True, one_hot_label=False):
     train_file_path = os.path.join(file_dir, 'train')
     test_file_path = os.path.join(file_dir, 'test')
 
-    ci_far_train_dict = None
+    train_dict = None
     with open(train_file_path, 'rb') as fo:
-        ci_far_train_dict = pickle.load(fo, encoding='bytes')
+        train_dict = pickle.load(fo, encoding='bytes')
 
-    # print('[optimizer_compare_cifar100.py]-[gen_ci_far100_train_test_data] train_data_dict keys: {}'
-    #           .format(ci_far_train_dict.keys()))
+    # print('[optimizer_compare_cifar100.py]-[gen_ci_far100_train_test_data] train_dict keys: {}'
+    #           .format(train_dict.keys()))
 
-    ci_far_100_train_data = ci_far_train_dict[b'data']
+    train_data = train_dict[b'data']
     if normalize:
-            ci_far_100_train_data = ci_far_100_train_data / 255.0
-    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] ci_far_100_train_data shape: {}'
-          .format(ci_far_100_train_data.shape))
+        train_data[:] = train_data[:] / 255.0
+    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] train_data shape: {}'
+          .format(train_data.shape))
 
     # fine_labels，回傳為list，封裝為ndarray
-    ci_far_100_train_fine_label = np.array(ci_far_train_dict[b'fine_labels'])
+    train_label = np.array(train_dict[b'fine_labels'])
     if one_hot_label:
-        ci_far_100_train_fine_label = change_one_hot_label(ci_far_100_train_fine_label)
-    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] ci_far_100_train_fine_label shape: {}'
-          .format(ci_far_100_train_fine_label.shape))
+        train_label = change_one_hot_label(train_label)
+    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] train_label shape: {}'
+          .format(train_label.shape))
 
     print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] end of train data load ... ')
 
-    ci_far_test_dict = None
+    test_dict = None
     with open(test_file_path, 'rb') as fo:
-        ci_far_test_dict = pickle.load(fo, encoding='bytes')
+        test_dict = pickle.load(fo, encoding='bytes')
 
-    # print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] ci_far_test_dict keys: {}'
-    #       .format(ci_far_test_dict.keys()))
+    # print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] test_dict keys: {}'
+    #       .format(test_dict.keys()))
 
-    ci_far_100_test_data = ci_far_test_dict[b'data']
+    test_data = test_dict[b'data']
     if normalize:
-            ci_far_100_test_data = ci_far_100_test_data / 255.0
-    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] ci_far_100_test_data shape: {}'
-          .format(ci_far_100_test_data.shape))
+        test_data[:] = test_data[:] / 255.0
+    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] test_data shape: {}'
+          .format(test_data.shape))
 
-    ci_far_100_test_fine_label = np.array(ci_far_test_dict[b'fine_labels'])
+    test_label = np.array(test_dict[b'fine_labels'])
     if one_hot_label:
-        ci_far_100_test_fine_label = change_one_hot_label(ci_far_100_test_fine_label)
-    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] ci_far_100_test_fine_label shape: {}'
-          .format(ci_far_100_test_fine_label.shape))
+        test_label = change_one_hot_label(test_label)
+    print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] test_label shape: {}'
+          .format(test_label.shape))
 
     print('[optimizer_compare_cifar100.py]-[gen_ci_far100_data] end of train test load ... ')
 
-    return (ci_far_100_train_data, ci_far_100_train_fine_label), (ci_far_100_test_data, ci_far_100_test_fine_label)
+    return (train_data, train_label), (test_data, test_label)
 
 
 if __name__ == '__main__':
@@ -87,3 +91,55 @@ if __name__ == '__main__':
           .format(type(test_x), test_x.shape))
     print('[optimizer_compare_cifar100.py]-[main] test_y test: {}，test_y shape: {}'
           .format(type(test_y), test_y.shape))
+
+    """
+    60000筆訓練資料，batch: 200，max_iterations: 250；一個epoch
+    """
+    train_size = train_x.shape[0]
+    batch_size = 200
+    max_iterations = 250
+
+    # 建構優化器
+    optimizers = {'SGD': SGD(),
+                  'Momentum': Momentum(),
+                  'AdaGrad': AdaGrad(),
+                  'Adam': Adam()}
+
+    # 建構分別的網路架構，並且記錄每個batch的損失情況
+    networks = {}
+    train_loss = {}
+    for key in optimizers.keys():
+        # 輸入32 * 32 * 3；輸出100
+        networks[key] = MultiLayerNet(
+            input_size=32*32*3, hidden_size_list=[1024, 512, 256], output_size=100)
+        train_loss[key] = []
+
+    for i in range(1, max_iterations + 1):
+        batch_mask = np.random.choice(train_size, batch_size)
+        x_batch = train_x[batch_mask]
+        t_batch = train_y[batch_mask]
+
+        for key in optimizers.keys():
+            grads = networks[key].gradient(x_batch, t_batch)
+            optimizers[key].update(networks[key].params, grads)
+
+            loss = networks[key].loss(x_batch, t_batch)
+            train_loss[key].append(loss)
+
+        # 每一萬筆，看一下損失情況
+        if i % 50 == 0:
+            print("[optimizer_compare_cifar100.py]-[main] =========== iteration: {} ===========".format(i))
+            for key in optimizers.keys():
+                loss = networks[key].loss(x_batch, t_batch)
+                print("[optimizer_compare_cifar100.py]-[main] {}: {}".format(key, loss))
+            print("[optimizer_compare_cifar100.py]-[main] =========== iteration: {} END ===========".format(i))
+
+    markers = {"SGD": "o", "Momentum": "x", "AdaGrad": "s", "Adam": "D"}
+    x = np.arange(max_iterations)
+    for key in optimizers.keys():
+        plt.plot(x, smooth_curve(train_loss[key]), marker=markers[key], markevery=100, label=key)
+    plt.xlabel("iterations")
+    plt.ylabel("loss")
+    # plt.ylim(0, 1)
+    plt.legend()
+    plt.show()
