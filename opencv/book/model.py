@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import cv2
+
 import numpy as np
+import cv2
 import time
 
 
@@ -156,4 +157,3 @@ class CaptureManager(object):
 
 if __name__ == '__main__':
     pass
-
