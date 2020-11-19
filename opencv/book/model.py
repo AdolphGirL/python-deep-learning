@@ -74,7 +74,7 @@ class CaptureManager(object):
     @property
     def frame(self):
         if self._enteredFrame and self._frame is None:
-            _, self._frame = self._capture.retrive()
+            _, self._frame = self._capture.retrieve()
         return self._frame
 
     @property

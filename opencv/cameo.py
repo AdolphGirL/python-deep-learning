@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import cv2
 import datetime
-from managers import WindowManager, CaptureManager
+from model import WindowManager, CaptureManager
 
 
 class Cameo(object):
