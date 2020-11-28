@@ -10,24 +10,21 @@ from common.trainer import Trainer
 
 class CifarSimpleConvNet:
     """
-    for CIFAR100，兩個卷積層，兩個全連階層，一個輸出層
-    conv - relu - pool - conv - relu - pool -
-    affine - relu - affine - relu - affine - softmax
+    for CIFAR100，兩個卷積層，一個全連階層，一個輸出層
+    conv - relu - pool - conv - relu - pool - affine - relu - affine - softmax
 
-    feature map仿LeNet-
+    feature map仿LeNet-5
                 conv1                       pool                        conv
     N*3*32*32 -> 6*3*5*5 -> 6*3*28*28 -> 3*2*2,stride=2 -> 6*3*14*14 -> 16*3*3*3 -> 16*3*12*12
 
         pool                          flatten
     -> 3*2*2,stride=2 -> 16*3*6*6 -> 16*6*6 -> fc input = 576 -> 256 -> 100(ouput)
-
     """
     def __init__(self, input_dim=(3, 32, 32),
                  conv_param={'filter_num_1': 6, 'filter_size_1': 5, 'pad_1': 0, 'stride_1': 1,
                              'filter_num_2': 16, 'filter_size_2': 3, 'pad_2': 0, 'stride_2': 1},
                  hidden_size=256, output_size=100, weight_init_std=0.01):
         """
-
         :param input_dim:
         :param conv_param:
         :param hidden_size_1:
@@ -55,7 +52,7 @@ class CifarSimpleConvNet:
         pool_output_size_2 = (conv_output_size_2 - 2 + 2 * 0) / 2 + 1
 
         # 第一個全連階層的輸入
-        fc_input_size = int(filter_num_2 * (pool_output_size_2 / 2) * (pool_output_size_2 / 2))
+        fc_input_size = int(filter_num_2 * pool_output_size_2 * pool_output_size_2)
 
         # 參數建立為後續演算需要，conv參數建立為(FN, C, H, W)
         self.params = {
@@ -231,8 +228,8 @@ if __name__ == '__main__':
           .format(type(test_y), test_y.shape))
 
     # 減少一下樣本數
-    x_train, t_train = train_x[:100], train_y[:100]
-    x_test, t_test = test_x[:100], test_y[:100]
+    x_train, t_train = train_x[:5000], train_y[:5000]
+    x_test, t_test = test_x[:1000], test_y[:1000]
 
     max_epochs = 20
 
@@ -240,7 +237,17 @@ if __name__ == '__main__':
     network = CifarSimpleConvNet()
 
     trainer = Trainer(network, x_train, t_train, x_test, t_test,
-                      epochs=max_epochs, mini_batch_size=10,
+                      epochs=max_epochs, mini_batch_size=100,
                       optimizer='Adam', optimizer_param={'lr': 0.001},
                       evaluate_sample_num_per_epoch=1000)
     trainer.train()
+
+    markers = {'train': 'o', 'test': 's'}
+    x = np.arange(max_epochs)
+    plt.plot(x, trainer.train_acc_list, marker='o', label='train', markevery=2)
+    plt.plot(x, trainer.test_acc_list, marker='s', label='test', markevery=2)
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.ylim(0, 1.0)
+    plt.legend(loc='lower right')
+    plt.show()
