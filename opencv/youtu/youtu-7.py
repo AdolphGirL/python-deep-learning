@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+
+# ref: https://www.mdeditor.tw/pl/gkhv/zh-tw
+# ref: https://github.com/Y132om/Credit_card_identification
+
+
 # opencv的簡化版
 from imutils import contours
 import numpy as np
